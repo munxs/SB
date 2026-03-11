@@ -17,42 +17,62 @@ A custom Netflix × Crunchyroll-inspired theme for [Jellyfin](https://jellyfin.o
 
 ## 📁 File Structure
 
-\`\`\`
+```
 streamberry/
 ├── README.md
 ├── .gitignore
 ├── src/
-│   ├── css
-│   	└── Streamberry.css      # Full theme stylesheet
-│   ├── js
-│   	└── Streamberry.js       # Bottom nav bar + UI enhancements
+│   ├── css/
+│   │   └── Streamberry.css      # Full theme stylesheet
+│   └── js/
+│       └── Streamberry.js       # Bottom nav bar + UI enhancements
 └── docs/
-    └── installation.md      # Step-by-step setup guide
-\`\`\`
+    └── installation.md          # Step-by-step setup guide
+```
 
 ---
 
 ## 🚀 Quick Install
 
-1. Open your Jellyfin **Dashboard**
-2. Go to **General** settings
-3. Paste the contents of \`src/Streamberry.css\` into the **Custom CSS** field
-4. Paste the contents of \`src/Streamberry.js\` into the **Custom JavaScript** field
-5. Save and refresh your Jellyfin client
+Go to your Jellyfin **Dashboard → General** and paste the following:
 
-> For detailed instructions, see [\`docs/installation.md\`](docs/installation.md).
+**Custom CSS:**
+```css
+@import url("https://cdn.jsdelivr.net/gh/munxs/streamberry@main/src/css/Streamberry.css");
+```
+
+**Custom JavaScript:**
+```js
+var s = document.createElement('script');
+s.src = "https://cdn.jsdelivr.net/gh/munxs/streamberry@main/src/js/Streamberry.js";
+document.head.appendChild(s);
+```
+
+Save and hard refresh your browser (`Ctrl + Shift + R`).
+
+> For detailed instructions, see [`docs/installation.md`](docs/installation.md).
+
+---
+
+## 🔄 Updating
+
+Changes pushed to `main` are served via jsDelivr CDN. To force an immediate update after pushing:
+
+1. Go to [jsdelivr.com/tools/purge](https://www.jsdelivr.com/tools/purge)
+2. Paste both URLs and purge them
+3. Hard refresh Jellyfin
 
 ---
 
 ## 🎨 Customization
 
-Key design tokens are defined at the top of \`Streamberry.css\` inside \`:root { }\`. You can easily change:
+Key design tokens are defined at the top of `Streamberry.css` inside `:root { }`. You can easily change:
 
 | Variable | Default | Description |
 |---|---|---|
-| \`--accent\` | \`rgb(229, 9, 20)\` | Primary accent color (Netflix red) |
-| \`--orange\` | \`rgb(255, 120, 0)\` | Secondary accent (Crunchyroll orange) |
-| \`--streamberryFooterText\` | \`"STREAMBERRY"\` | Footer branding text |
+| `--accent` | `rgb(229, 9, 20)` | Primary accent color (Netflix red) |
+| `--orange` | `rgb(255, 120, 0)` | Secondary accent (Crunchyroll orange) |
+| `--streamberryFooterText` | `"STREAMBERRY"` | Footer branding text |
 
 ---
 
@@ -65,4 +85,4 @@ Key design tokens are defined at the top of \`Streamberry.css\` inside \`:root {
 
 ## 📄 License
 
-Private repository — for personal use only.
+MIT — feel free to use and modify for personal use.
