@@ -1,6 +1,21 @@
 /**
  * Streamberry — Bottom Navigation Bar v5
  * Inject via Jellyfin Dashboard → General → Custom JavaScript
+ *
+ * ── CDN INJECTION (Jellyfin Branding → Custom JS) ────────────
+ * Use this snippet — NOT a bare script tag:
+ *
+ *   (function() {
+ *     var s = document.createElement('script');
+ *     s.src = 'https://cdn.jsdelivr.net/gh/munxs/streamberry@main/src/js/Streamberry.js';
+ *     s.async = false;
+ *     document.head.appendChild(s);
+ *   })();
+ *
+ * CDN cache note: jsDelivr caches for 24h. After pushing a new file,
+ * use the purge URL to bust the cache:
+ *   https://purge.jsdelivr.net/gh/munxs/streamberry@main/src/js/Streamberry.js
+ * ─────────────────────────────────────────────────────────────
  */
 
 /* ═══════════════════════════════════════════════════════════
@@ -1109,16 +1124,58 @@
       if (findTarget() && _items.length) inject();
     }).observe(document.body, { childList: true, subtree: true });
 
-    // Wait for ApiClient to be ready
+    // Wait for ApiClient AND a valid userId — poll aggressively.
+    // When loaded via CDN script injection the Jellyfin SPA may not have
+    // finished bootstrapping yet, so we poll up to 60 × 500ms = 30 seconds.
     let tries = 0;
     const poll = () => {
-      if (apiClient() && userId()) { load(); return; }
-      if (++tries < 40) setTimeout(poll, 500);
+      const c = apiClient();
+      const uid = userId();
+      if (c && uid) {
+        load();
+        return;
+      }
+      // Also try to hook into Jellyfin's own Events system as a faster signal
+      if (tries === 0 && window.Events && window.ApiClient) {
+        try {
+          window.Events.on(window.ApiClient, "websocketmessage", function handler() {
+            window.Events.off(window.ApiClient, "websocketmessage", handler);
+            setTimeout(load, 200);
+          });
+        } catch(e) {}
+      }
+      if (++tries < 60) setTimeout(poll, 500);
     };
-    setTimeout(poll, 800);
+    // Start polling — delay slightly more for CDN injection scenario
+    setTimeout(poll, 1200);
+
+    // Also trigger on any hashchange that fires before ApiClient is ready
+    // (covers the case where the user is already on home when script loads)
+    const earlyRoute = () => {
+      if (apiClient() && userId()) {
+        window.removeEventListener("hashchange", earlyRoute);
+        if (isHome() && !document.getElementById(MB_ID)) load();
+      }
+    };
+    window.addEventListener("hashchange", earlyRoute);
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
-  else setTimeout(init, 300);
+  // For CDN injection: the script tag fires after DOMContentLoaded in most cases.
+  // We wait for requestAnimationFrame to ensure Jellyfin's own boot scripts have run.
+  function boot() {
+    // If Jellyfin's require/define is present, wait one more tick
+    if (typeof require === "function" || typeof define === "function") {
+      setTimeout(init, 500);
+    } else {
+      init();
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    // Already past DOMContentLoaded — script was injected late (CDN case)
+    requestAnimationFrame(() => setTimeout(boot, 300));
+  }
 
 })();
