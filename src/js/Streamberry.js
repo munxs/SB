@@ -7,14 +7,14 @@
  *
  *   (function() {
  *     var s = document.createElement('script');
- *     s.src = 'https://cdn.jsdelivr.net/gh/munxs/streamberry@main/src/js/Streamberry.js';
+ *     s.src = 'https://cdn.jsdelivr.net/gh/munxs/Streamberry@main/src/js/Streamberry.js';
  *     s.async = false;
  *     document.head.appendChild(s);
  *   })();
  *
  * CDN cache note: jsDelivr caches for 24h. After pushing a new file,
  * use the purge URL to bust the cache:
- *   https://purge.jsdelivr.net/gh/munxs/streamberry@main/src/js/Streamberry.js
+ *   https://purge.jsdelivr.net/gh/munxs/Streamberry@main/src/js/Streamberry.js
  * ─────────────────────────────────────────────────────────────
  */
 
