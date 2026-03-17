@@ -357,11 +357,30 @@
     // Jellyseerr's /login/jellyfin endpoint accepts:
     //   ?jellyfinHost=<your jellyfin server URL>&token=<access token>
     // This signs the user in automatically without a second login prompt.
+    // We probe the endpoint first; if it 404s (Overseerr or Jellyfin auth
+    // disabled) we fall back to the bare Jellyseerr URL gracefully.
     const token = getJellyfinToken();
     const jellyfinHost = getJellyfinServerUrl();
-    const iframeUrl = token
+    const ssoUrl = token
       ? `${url}/login/jellyfin?jellyfinHost=${encodeURIComponent(jellyfinHost)}&token=${encodeURIComponent(token)}`
-      : url;
+      : null;
+
+    function _loadJellyseerrFrame(frame, loader, targetUrl) {
+      loader.style.display = "";
+      loader.innerHTML = `
+        <span class="material-icons sbJellyseerrSpinner">autorenew</span>
+        <p>Loading Seerr…</p>`;
+      frame.style.opacity = "0";
+      frame.src = targetUrl;
+    }
+
+    // Probe SSO endpoint; fall back to bare URL on 404/error
+    function _resolveIframeUrl(onResolved) {
+      if (!ssoUrl) { onResolved(url); return; }
+      fetch(ssoUrl, { method: "HEAD", redirect: "follow" })
+        .then(r => onResolved(r.ok || r.status === 0 ? ssoUrl : url))
+        .catch(() => onResolved(url));
+    }
 
     let overlay = document.getElementById("sbJellyseerrOverlay");
     if (overlay) {
@@ -370,12 +389,7 @@
       const existingFrame = document.getElementById("sbJellyseerrFrame");
       const existingLoader = document.getElementById("sbJellyseerrLoader");
       if (existingFrame && existingLoader) {
-        existingLoader.style.display = "";
-        existingLoader.innerHTML = `
-          <span class="material-icons sbJellyseerrSpinner">autorenew</span>
-          <p>Loading Seerr…</p>`;
-        existingFrame.style.opacity = "0";
-        existingFrame.src = iframeUrl;
+        _resolveIframeUrl(resolved => _loadJellyseerrFrame(existingFrame, existingLoader, resolved));
       }
     } else {
       overlay = document.createElement("div");
@@ -397,7 +411,7 @@
 
       const iframe = document.createElement("iframe");
       iframe.id = "sbJellyseerrFrame";
-      iframe.src = iframeUrl;
+      iframe.src = "about:blank";
       iframe.setAttribute("allowfullscreen", "true");
       iframe.setAttribute("allow", "fullscreen");
 
@@ -418,6 +432,9 @@
       overlay.appendChild(iframe);
       document.body.appendChild(overlay);
       document.getElementById("sbJellyseerrClose").addEventListener("click", closeJellyseerrOverlay);
+
+      // Probe SSO endpoint then load — falls back to bare URL if /login/jellyfin returns 404
+      _resolveIframeUrl(resolved => { iframe.src = resolved; });
     }
 
     overlay.style.display = "";
