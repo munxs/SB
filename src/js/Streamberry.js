@@ -34,6 +34,85 @@
   });
 })();
 
+/* ── CSS injected as <link> tag — works on login page too ── */
+(function () {
+  var href = "https://cdn.jsdelivr.net/gh/munxs/Streamberry@main/src/css/Streamberry.css";
+  if (!document.querySelector('link[href="' + href + '"]')) {
+    var l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = href;
+    document.head.appendChild(l);
+  }
+})();
+
+/* ── Custom logo + favicon ── */
+(function () {
+  var FAVICON = "https://cdn.jsdelivr.net/gh/munxs/Streamberry@main/src/logo/sb_favicon.png";
+  var LOGO    = "https://cdn.jsdelivr.net/gh/munxs/Streamberry@main/src/logo/sb_logo.png";
+
+  /* ── Favicon ── */
+  function setFavicon() {
+    document.querySelectorAll('link[rel*="icon"]').forEach(function(f) { f.remove(); });
+    ["shortcut icon", "icon", "apple-touch-icon"].forEach(function(rel) {
+      var l = document.createElement("link");
+      l.rel  = rel;
+      l.type = "image/png";
+      l.href = FAVICON;
+      document.head.appendChild(l);
+    });
+  }
+  setFavicon();
+
+  /* ── Logo replacement ── */
+  // Selectors that cover every place Jellyfin shows its logo
+  var LOGO_SELECTORS = [
+    // Header logo image
+    '.headerLogo img',
+    '.headerLogoImage',
+    '.logoImage',
+    // Login page logo
+    '.loginLogo img',
+    '.loginLogo',
+    // Splash / loading screen
+    '.splashLogo',
+    '.splash-logo',
+    // Any img whose src contains jellyfin branding
+    'img[src*="banner-light"]',
+    'img[src*="banner-dark"]',
+    'img[src*="banner.png"]',
+    'img[src*="logo.png"]',
+    'img[src*="jellyfin-banner"]',
+    'img[src*="Jellyfin_Logo"]',
+  ].join(",");
+
+  function replaceLogos() {
+    // Replace img tags
+    document.querySelectorAll(LOGO_SELECTORS).forEach(function(img) {
+      if (img.tagName === "IMG" && !img.dataset.sbLogo) {
+        img.dataset.sbLogo = "1";
+        img.src = LOGO;
+        img.style.cssText = "max-height:2em;width:auto;object-fit:contain;display:block;";
+      }
+    });
+
+    // Also replace background-image logos set via inline style
+    document.querySelectorAll('[style*="banner-light"],[style*="banner-dark"],[style*="Jellyfin_Logo"]').forEach(function(el) {
+      if (!el.dataset.sbLogo) {
+        el.dataset.sbLogo = "1";
+        el.style.backgroundImage = 'url("' + LOGO + '")';
+        el.style.backgroundSize = "contain";
+        el.style.backgroundRepeat = "no-repeat";
+      }
+    });
+  }
+
+  // Run immediately and watch for DOM changes
+  replaceLogos();
+  new MutationObserver(replaceLogos).observe(document.documentElement, {
+    childList: true, subtree: true
+  });
+})();
+
 /* ═══════════════════════════════════════════════════════════
    DESKTOP PILL NAV BAR
    Frosted-glass pill, top-centre, desktop only.

@@ -3190,3 +3190,22 @@ body:has(#loginPage:not(.hide)) #sbPillNav { display: none !important; }
 .portraitCard[data-type="Movie"]  .cardScalable::before { content: "MOVIE";   background: rgba(0,178,214,0.93);   color: #fff; }
 .portraitCard[data-type="Series"] .cardScalable::before { content: "SHOW";    background: rgba(112,76,215,0.93);  color: #fff; }
 .portraitCard[data-type="BoxSet"] .cardScalable::before { content: "BOX SET"; background: rgba(196,136,18,0.93);  color: #fff; }
+
+/* ── Logo replacement via CSS ────────────────────────────────── */
+/* Hides the default Jellyfin text/SVG logo and replaces with sb_logo */
+.headerLogo,
+.logoImage,
+.headerLogoImage {
+  background-image: url("https://cdn.jsdelivr.net/gh/munxs/Streamberry@main/src/logo/sb_logo.png") !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+
+/* Hide any child img inside logo containers — JS replaces them,
+   CSS hides them in case JS hasn't fired yet */
+.headerLogo img,
+.logoImage img,
+.headerLogoImage img {
+  opacity: 0;
+}
