@@ -3228,24 +3228,46 @@ body:has(#loginPage:not(.hide)) #sbPillNav { display: none !important; }
    SB LIBRARY OVERLAY — Moonfin-style
    ══════════════════════════════════════════════════════════════ */
 
-/* Flash fix: instantly hide the native library/favorites page
-   before our overlay renders */
-.itemsTab,
-.libraryPage,
-#favoritesPage,
-.page:has(.favoritesTab) {
+/* ── Flash fix: permanently hide native library UI elements ──
+   These elements only exist on library/favorites pages so it's
+   safe to always hide them — our overlay replaces them fully. ── */
+
+/* Native alphabet picker (vertical letters on right) */
+.alphaPicker,
+.alphaPickerSection,
+.alphaPicker-fixed {
+  display: none !important;
+}
+
+/* Native viewMenuBar (1-53 of 53, AZ button, filter icon row) */
+.itemsTab .viewMenuBar,
+.libraryPage .viewMenuBar {
+  display: none !important;
+}
+
+/* Native page title on library pages */
+.itemsTab .pageTitle,
+.libraryPage .pageTitle,
+.itemsTab .sectionTitleContainer,
+.libraryPage .sectionTitleContainer {
+  display: none !important;
+}
+
+/* Native items container — hide immediately, show only if overlay not active */
+.itemsTab .itemsContainer,
+.libraryPage .itemsContainer {
   visibility: hidden !important;
+  opacity: 0 !important;
 }
 
-/* But keep it visible when our overlay is NOT active
-   (overlay adds .sb-overlay-active to body) */
-body:not(.sb-overlay-active) .itemsTab,
-body:not(.sb-overlay-active) .libraryPage,
-body:not(.sb-overlay-active) #favoritesPage,
-body:not(.sb-overlay-active) .page:has(.favoritesTab) {
-  visibility: visible !important;
+/* Native favorites page content */
+#favoritesPage .itemsContainer,
+.favoritesTab .itemsContainer {
+  visibility: hidden !important;
+  opacity: 0 !important;
 }
 
+/* ── Overlay ── */
 .sb-library-overlay {
   position: fixed;
   top: 0;
@@ -3358,11 +3380,7 @@ body:not(.sb-overlay-active) .page:has(.favoritesTab) {
 }
 
 .sb-lib-alpha-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
-
-.sb-lib-alpha-btn.sb-active {
-  background: var(--accent, rgb(229,9,20));
-  color: #fff;
-}
+.sb-lib-alpha-btn.sb-active { background: var(--accent, rgb(229,9,20)); color: #fff; }
 
 /* ── Grid ── */
 .sb-lib-grid {
@@ -3414,7 +3432,6 @@ body:not(.sb-overlay-active) .page:has(.favoritesTab) {
 
 .sb-lib-card-no-img .material-icons { font-size: 36px; color: rgba(255,255,255,0.2); }
 
-/* Red badges for all types */
 .sb-lib-badge {
   position: absolute;
   top: 5px;
@@ -3452,8 +3469,7 @@ body:not(.sb-overlay-active) .page:has(.favoritesTab) {
 }
 
 /* ── States ── */
-.sb-lib-loading,
-.sb-lib-empty {
+.sb-lib-loading, .sb-lib-empty {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3488,12 +3504,7 @@ body:not(.sb-overlay-active) .page:has(.favoritesTab) {
 }
 
 .sb-lib-dropdown.sb-visible { opacity: 1; pointer-events: all; }
-
-.sb-lib-dropdown-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.65);
-}
+.sb-lib-dropdown-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.65); }
 
 .sb-lib-dropdown-box {
   position: relative;
@@ -3536,7 +3547,6 @@ body:not(.sb-overlay-active) .page:has(.favoritesTab) {
 .sb-lib-dropdown-opt:hover { background: rgba(255,255,255,0.10); color: #fff; }
 .sb-lib-dropdown-opt.sb-active { background: var(--accent, rgb(229,9,20)); color: #fff; }
 
-/* ── Load more ── */
 .sb-lib-load-more {
   grid-column: 1 / -1;
   display: flex;

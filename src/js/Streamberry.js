@@ -1415,9 +1415,8 @@
 
 /* ═══════════════════════════════════════════════════════════
    SB LIBRARY OVERLAY — Moonfin-style
-   Covers: Movies, TV Shows, Favorites
-   Fixes: no-flash, favorites detection, filter btn, red badges,
-          centered alpha, smaller cards
+   Flash-free: native page elements permanently hidden via CSS.
+   Overlay replaces Movies, TV Shows, Favorites entirely.
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -1490,29 +1489,30 @@
   }
 
   /* ── Page detection ── */
-  function currentHash() { return (location.hash || '').toLowerCase(); }
+  function hash() { return (location.hash || '').toLowerCase(); }
+  function isMoviesPage()    { return hash().includes('/movies'); }
+  function isTVPage()        { return hash().includes('/tv'); }
+  function isFavoritesPage() { return hash().includes('tab=1') || hash().includes('/favorites') || hash().includes('/favorite'); }
+  function isInterceptable() { return isMoviesPage() || isTVPage() || isFavoritesPage(); }
 
-  function isMoviesPage()    { return currentHash().includes('/movies'); }
-  function isTVPage()        { return currentHash().includes('/tv'); }
-  function isFavoritesPage() {
-    const h = currentHash();
-    // Jellyfin favorites: #/home.html?tab=1 or #/home?tab=1 or #/favorites
-    return h.includes('tab=1') || h.includes('/favorites') || h.includes('/favorite');
-  }
-  function isLibraryListPage() {
-    const h = currentHash();
-    return h.includes('/list') && h.includes('topparentid');
-  }
-  function isInterceptablePage() {
-    return isMoviesPage() || isTVPage() || isFavoritesPage() || isLibraryListPage();
-  }
-
-  /* ── Flash fix: immediately hide native page when navigating ── */
-  function hideNativePage() {
-    document.body.classList.add('sb-overlay-active');
-  }
-  function showNativePage() {
-    document.body.classList.remove('sb-overlay-active');
+  /* ── Inject a style tag to nuke native remnants instantly ──
+     This is a JS-injected <style> so it fires before any paint,
+     completely eliminating the flash regardless of CSS load order. ── */
+  function injectFlashKiller() {
+    if (document.getElementById('sbFlashKiller')) return;
+    const s = document.createElement('style');
+    s.id = 'sbFlashKiller';
+    s.textContent = `
+      .alphaPicker, .alphaPickerSection, .alphaPicker-fixed { display: none !important; }
+      .itemsTab .viewMenuBar, .libraryPage .viewMenuBar { display: none !important; }
+      .itemsTab .pageTitle, .libraryPage .pageTitle,
+      .itemsTab .sectionTitleContainer, .libraryPage .sectionTitleContainer { display: none !important; }
+      .itemsTab .itemsContainer, .libraryPage .itemsContainer,
+      #favoritesPage .itemsContainer, .favoritesTab .itemsContainer { visibility: hidden !important; opacity: 0 !important; }
+    `;
+    // Inject as first child of <head> so it wins specificity race
+    const head = document.head || document.documentElement;
+    head.insertBefore(s, head.firstChild);
   }
 
   /* ── Fetch ── */
@@ -1525,16 +1525,13 @@
       : filterKey;
 
     const params = new URLSearchParams({
-      StartIndex:       startIdx,
-      Limit:            BATCH,
-      SortBy:           sortBy,
-      SortOrder:        sortOrder,
+      StartIndex: startIdx, Limit: BATCH,
+      SortBy: sortBy, SortOrder: sortOrder,
       IncludeItemTypes: inclTypes,
-      Recursive:        'true',
-      Fields:           'PrimaryImageAspectRatio,CommunityRating,OfficialRating,ProductionYear',
-      ImageTypeLimit:   1,
-      EnableImageTypes: 'Primary',
-      UserId:           userId(),
+      Recursive: 'true',
+      Fields: 'PrimaryImageAspectRatio,CommunityRating,OfficialRating,ProductionYear',
+      ImageTypeLimit: 1, EnableImageTypes: 'Primary',
+      UserId: userId(),
     });
 
     if (colType === 'favorites') {
@@ -1551,9 +1548,7 @@
       const data = await res.json();
       total = data.TotalRecordCount || 0;
       items = reset ? (data.Items || []) : items.concat(data.Items || []);
-    } catch(e) {
-      console.error('[Streamberry] fetchItems error:', e);
-    }
+    } catch(e) { console.error('[Streamberry] fetchItems:', e); }
 
     loading = false;
     render();
@@ -1576,18 +1571,16 @@
     dd.querySelector('.sb-lib-dropdown-backdrop').addEventListener('click', () => {
       dd.classList.remove('sb-visible'); setTimeout(() => dd.remove(), 200);
     });
-    dd.querySelectorAll('.sb-lib-dropdown-opt').forEach(btn => {
+    dd.querySelectorAll('.sb-lib-dropdown-opt').forEach(btn =>
       btn.addEventListener('click', () => {
         onSelect(btn.dataset.key);
         dd.classList.remove('sb-visible'); setTimeout(() => dd.remove(), 200);
-      });
-    });
+      }));
   }
 
   /* ── Render ── */
   function render() {
     if (!overlay) return;
-
     const sortLabel   = (SORT_OPTIONS.find(o => o.key === sortKey)    || SORT_OPTIONS[0]).label;
     const filterLabel = (FILTER_OPTIONS.find(o => o.key === filterKey) || FILTER_OPTIONS[0]).label;
 
@@ -1603,17 +1596,15 @@
     } else {
       bodyHTML = '<div class="sb-lib-grid">';
       items.forEach(item => {
-        const img      = posterUrl(item);
-        const year     = item.ProductionYear || '';
-        const rat      = item.OfficialRating || '';
-        const score    = item.CommunityRating ? '★ ' + item.CommunityRating.toFixed(1) : '';
-        const badgeTxt = item.Type === 'Movie' ? 'MOVIE' : item.Type === 'Series' ? 'SERIES' : '';
+        const img   = posterUrl(item);
+        const year  = item.ProductionYear || '';
+        const rat   = item.OfficialRating || '';
+        const score = item.CommunityRating ? '★ ' + item.CommunityRating.toFixed(1) : '';
+        const badge = item.Type === 'Movie' ? 'MOVIE' : item.Type === 'Series' ? 'SERIES' : '';
         bodyHTML += `<div class="sb-lib-card" data-id="${item.Id}">
           <div class="sb-lib-card-poster">
-            ${img
-              ? `<img class="sb-lib-card-img" src="${img}" alt="" loading="lazy">`
-              : `<div class="sb-lib-card-no-img"><span class="material-icons">movie</span></div>`}
-            ${badgeTxt ? `<span class="sb-lib-badge">${badgeTxt}</span>` : ''}
+            ${img ? `<img class="sb-lib-card-img" src="${img}" alt="" loading="lazy">` : `<div class="sb-lib-card-no-img"><span class="material-icons">movie</span></div>`}
+            ${badge ? `<span class="sb-lib-badge">${badge}</span>` : ''}
           </div>
           <div class="sb-lib-card-info">
             <div class="sb-lib-card-name">${(item.Name||'Unknown').replace(/</g,'&lt;')}</div>
@@ -1638,12 +1629,8 @@
       </div>
       <div class="sb-lib-toolbar">
         <div class="sb-lib-toolbar-left">
-          <button class="sb-lib-btn" id="sbLibSort">
-            <span class="material-icons">sort</span><span>${sortLabel}</span>
-          </button>
-          <button class="sb-lib-btn" id="sbLibFilter">
-            <span class="material-icons">filter_list</span><span>${filterLabel}</span>
-          </button>
+          <button class="sb-lib-btn" id="sbLibSort"><span class="material-icons">sort</span><span>${sortLabel}</span></button>
+          <button class="sb-lib-btn" id="sbLibFilter"><span class="material-icons">filter_list</span><span>${filterLabel}</span></button>
         </div>
         <div class="sb-lib-alpha-nav">${alphaHTML}</div>
       </div>
@@ -1655,36 +1642,30 @@
   function bindEvents() {
     overlay.querySelector('#sbLibSort')?.addEventListener('click', () =>
       showDropdown('Sort By', SORT_OPTIONS, sortKey, k => { sortKey = k; fetchItems(true); }));
-
     overlay.querySelector('#sbLibFilter')?.addEventListener('click', () =>
       showDropdown('Filter', FILTER_OPTIONS, filterKey, k => { filterKey = k; fetchItems(true); }));
-
     overlay.querySelectorAll('.sb-lib-alpha-btn').forEach(btn =>
       btn.addEventListener('click', () => {
         const l = btn.dataset.letter;
         letter = letter === l ? null : l;
         fetchItems(true);
       }));
-
     overlay.querySelectorAll('.sb-lib-card').forEach(card =>
       card.addEventListener('click', () => {
         const id = card.dataset.id;
         if (!id) return;
         location.href = `#!/details?id=${id}`;
-        close();
+        hide();
       }));
-
     overlay.querySelector('#sbLibLoadMore')?.addEventListener('click', () => {
       startIdx = items.length; fetchItems(false);
     });
-
-    overlay.addEventListener('scroll', function _scroll() {
+    overlay.addEventListener('scroll', () => {
       if (loading || items.length >= total) return;
       if (overlay.scrollTop + overlay.clientHeight >= overlay.scrollHeight - 500) {
         startIdx = items.length; fetchItems(false);
       }
     });
-
     if (escHandler) document.removeEventListener('keydown', escHandler);
     escHandler = e => { if (e.key === 'Escape' && visible) { e.preventDefault(); hide(); } };
     document.addEventListener('keydown', escHandler);
@@ -1692,19 +1673,11 @@
 
   /* ── Show / Hide ── */
   function show(id, name, type) {
-    if (!overlay) createOverlay();
-    libId     = id;
-    libName   = name;
-    colType   = type;
-    items     = [];
-    total     = 0;
-    startIdx  = 0;
+    libId = id; libName = name; colType = type;
+    items = []; total = 0; startIdx = 0;
     sortKey   = 'SortName,Ascending';
     filterKey = colType === 'movies' ? 'Movie' : colType === 'tvshows' ? 'Series' : 'all';
-    letter    = null;
-    loading   = false;
-    visible   = true;
-    hideNativePage();
+    letter = null; loading = false; visible = true;
     overlay.classList.add('sb-visible');
     document.body.style.overflow = 'hidden';
     fetchItems(true);
@@ -1714,11 +1687,8 @@
     visible = false;
     overlay?.classList.remove('sb-visible');
     document.body.style.overflow = '';
-    showNativePage();
     if (escHandler) { document.removeEventListener('keydown', escHandler); escHandler = null; }
   }
-
-  function close() { hide(); }
 
   function createOverlay() {
     if (overlay) return;
@@ -1752,71 +1722,58 @@
   let _active = false;
 
   async function tryIntercept() {
-    if (!isInterceptablePage()) {
+    if (!isInterceptable()) {
       if (_active) { hide(); _active = false; }
       return;
     }
     if (visible) return;
-
-    // Flash fix: hide native page immediately, before API call
-    hideNativePage();
-
-    const c = apiClient(), uid = userId();
-    if (!c || !uid) {
-      // Not ready yet — poll briefly
-      let tries = 0;
-      const poll = setInterval(() => {
-        if (++tries > 20) { clearInterval(poll); showNativePage(); return; }
-        const cc = apiClient(), uu = userId();
-        if (cc && uu) { clearInterval(poll); _doIntercept(); }
-      }, 250);
-      return;
-    }
-    _doIntercept();
-  }
-
-  async function _doIntercept() {
     _active = true;
 
-    if (isFavoritesPage()) {
-      show(null, 'Favorites', 'favorites');
-      return;
+    // Wait for ApiClient if not ready yet
+    if (!apiClient() || !userId()) {
+      let tries = 0;
+      await new Promise(resolve => {
+        const poll = setInterval(() => {
+          if ((apiClient() && userId()) || ++tries > 30) {
+            clearInterval(poll); resolve();
+          }
+        }, 200);
+      });
     }
 
+    if (!apiClient() || !userId()) { _active = false; return; }
+
+    if (isFavoritesPage()) { show(null, 'Favorites', 'favorites'); return; }
+
     const id = await resolveLibId();
-    if (!id) { _active = false; showNativePage(); return; }
+    if (!id) { _active = false; return; }
 
     const type = isMoviesPage() ? 'movies' : isTVPage() ? 'tvshows' : '';
-    const name = type === 'movies' ? 'Movies' : type === 'tvshows' ? 'TV Shows' : 'Library';
+    const name = type === 'movies' ? 'Movies' : 'TV Shows';
     show(id, name, type);
   }
 
   /* ── Boot ── */
+  // Inject the flash-killer <style> as early as possible
+  injectFlashKiller();
   createOverlay();
 
-  // Flash fix: intercept navigation IMMEDIATELY on hashchange, before Jellyfin renders
   window.addEventListener('hashchange', () => {
     _active = false;
     if (visible) hide();
-    if (isInterceptablePage()) hideNativePage(); // instant hide
-    setTimeout(tryIntercept, 300);
+    // Re-inject flash killer on every navigation (SPA may have replaced head)
+    injectFlashKiller();
+    setTimeout(tryIntercept, 250);
   });
 
   window.addEventListener('popstate', () => {
-    if (isInterceptablePage()) hideNativePage();
-    setTimeout(tryIntercept, 300);
+    injectFlashKiller();
+    setTimeout(tryIntercept, 250);
   });
 
-  // Watch for Jellyfin SPA page changes via MutationObserver as backup
-  new MutationObserver(() => {
-    if (isInterceptablePage() && !visible) {
-      hideNativePage();
-    }
-  }).observe(document.body, { childList: true, subtree: false });
-
   const _boot = () => {
-    if (isInterceptablePage()) hideNativePage();
-    setTimeout(tryIntercept, 800);
+    injectFlashKiller();
+    setTimeout(tryIntercept, 700);
   };
 
   if (document.readyState === 'loading') {
