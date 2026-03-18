@@ -1412,3 +1412,185 @@
   }
 
 })();
+
+/* ═══════════════════════════════════════════════════════════
+   LIBRARY PAGE HEADER OVERHAUL
+   Injects: Title  N items  | [Sort ▾] [Filter ▾] [A–Z ...]
+   ═══════════════════════════════════════════════════════════ */
+(function () {
+  "use strict";
+
+  const HEADER_ID = "sbLibraryHeader";
+
+  function isLibraryPage() {
+    const hash = location.hash || "";
+    // Matches /movies, /tv, /list, and generic library browse pages
+    return (
+      hash.includes("/movies") ||
+      hash.includes("/tv") ||
+      hash.includes("/list") ||
+      !!document.querySelector(".itemsTab, .libraryPage")
+    );
+  }
+
+  function getLibraryName() {
+    // Try the real page title first
+    const titleEl =
+      document.querySelector(".pageTitle:not(.pageTitleWithDefaultLogo)") ||
+      document.querySelector(".libraryPage .pageTitle") ||
+      document.querySelector("h1.pageTitle") ||
+      document.querySelector(".itemsTab h1") ||
+      document.querySelector(".sectionTitle");
+    if (titleEl) return titleEl.textContent.trim();
+
+    // Fallback: derive from URL hash
+    const hash = location.hash || "";
+    if (hash.includes("/movies"))   return "Movies";
+    if (hash.includes("/tv"))       return "TV Shows";
+    if (hash.includes("/music"))    return "Music";
+    if (hash.includes("/list"))     return "Library";
+    return "";
+  }
+
+  function getItemCount() {
+    // Jellyfin renders count in .itemCountIndicator or as text near the header
+    const countEl =
+      document.querySelector(".itemCountIndicator") ||
+      document.querySelector(".recordCount") ||
+      document.querySelector(".viewMenuBar .recordCount");
+    if (countEl) {
+      const n = parseInt(countEl.textContent.replace(/\D/g, ""), 10);
+      if (!isNaN(n)) return n;
+    }
+    // Count cards as fallback
+    const cards = document.querySelectorAll(
+      ".itemsContainer .card, .itemsContainer .listItem"
+    );
+    return cards.length || null;
+  }
+
+  function getOrBuildHeader() {
+    let hdr = document.getElementById(HEADER_ID);
+    if (hdr) return hdr;
+
+    hdr = document.createElement("div");
+    hdr.id = HEADER_ID;
+    hdr.innerHTML = `
+      <div class="sbLibTitle">
+        <span class="sbLibName"></span>
+        <span class="sbLibCount"></span>
+      </div>
+      <div class="sbLibFilters"></div>`;
+    return hdr;
+  }
+
+  function cloneFilterButtons(filtersRow) {
+    // Grab the real viewMenuBar filter/sort controls
+    const bar = document.querySelector(".viewMenuBar");
+    if (!bar || filtersRow.dataset.cloned) return;
+
+    // Clone every interactive child (selects + buttons)
+    const controls = bar.querySelectorAll(
+      "select, .emby-select-withcolor, button.emby-button, .btnSortText, .btnFilter, .alphabetPicker button"
+    );
+
+    if (!controls.length) return;
+    filtersRow.dataset.cloned = "1";
+
+    controls.forEach(ctrl => {
+      const clone = ctrl.cloneNode(true);
+      // Wire click/change on clone back to the real element
+      clone.addEventListener("change", () => { ctrl.value = clone.value; ctrl.dispatchEvent(new Event("change", { bubbles: true })); });
+      clone.addEventListener("click",  () => { ctrl.click(); });
+      filtersRow.appendChild(clone);
+    });
+
+    // Hide the real bar visually (but keep it in DOM so Jellyfin logic still works)
+    bar.classList.add("sbLibHideBar");
+  }
+
+  function injectHeader() {
+    if (!isLibraryPage()) return;
+
+    const name = getLibraryName();
+    if (!name) return;
+
+    // Find anchor — the items container or the page content wrapper
+    const anchor =
+      document.querySelector(".itemsTab > .padded-left") ||
+      document.querySelector(".itemsTab > .padded-top") ||
+      document.querySelector(".itemsTab") ||
+      document.querySelector(".libraryPage .padded-top.padded-left-withalphabet") ||
+      document.querySelector(".filterContainer") ||
+      document.querySelector(".itemsContainer")?.parentElement;
+
+    if (!anchor) return;
+
+    const hdr = getOrBuildHeader();
+    if (!hdr.parentElement) {
+      anchor.insertAdjacentElement("beforebegin", hdr);
+    }
+
+    // Update name
+    hdr.querySelector(".sbLibName").textContent = name;
+
+    // Update count
+    const count = getItemCount();
+    hdr.querySelector(".sbLibCount").textContent =
+      count !== null ? `${count.toLocaleString()} item${count !== 1 ? "s" : ""}` : "";
+
+    // Clone filter controls once they exist
+    const filtersRow = hdr.querySelector(".sbLibFilters");
+    cloneFilterButtons(filtersRow);
+  }
+
+  function ejectHeader() {
+    const hdr = document.getElementById(HEADER_ID);
+    if (hdr) hdr.remove();
+    // Restore the real bar
+    document.querySelector(".viewMenuBar.sbLibHideBar")?.classList.remove("sbLibHideBar");
+  }
+
+  function onRoute() {
+    ejectHeader();
+    if (isLibraryPage()) {
+      // Delay to let Jellyfin render the page title + item count
+      setTimeout(injectHeader, 600);
+      setTimeout(injectHeader, 1400); // second pass to catch late count render
+    }
+  }
+
+  // Re-sync item count as cards load in
+  let _countTimer = null;
+  function watchCount() {
+    clearInterval(_countTimer);
+    if (!isLibraryPage()) return;
+    _countTimer = setInterval(() => {
+      const hdr = document.getElementById(HEADER_ID);
+      if (!hdr) return;
+      const count = getItemCount();
+      if (count !== null) {
+        hdr.querySelector(".sbLibCount").textContent =
+          `${count.toLocaleString()} item${count !== 1 ? "s" : ""}`;
+      }
+    }, 800);
+    setTimeout(() => clearInterval(_countTimer), 12000);
+  }
+
+  window.addEventListener("hashchange", () => { onRoute(); watchCount(); });
+  window.addEventListener("popstate",   () => { onRoute(); watchCount(); });
+
+  // MutationObserver to catch SPA navigation that doesn't fire hashchange
+  new MutationObserver(() => {
+    if (isLibraryPage() && !document.getElementById(HEADER_ID)) {
+      injectHeader();
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+
+  // Initial run
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => { onRoute(); watchCount(); });
+  } else {
+    setTimeout(() => { onRoute(); watchCount(); }, 800);
+  }
+})();

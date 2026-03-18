@@ -3223,3 +3223,101 @@ body:has(#loginPage:not(.hide)) #sbPillNav { display: none !important; }
   left: 50% !important;
   transform: translateX(-50%) !important;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   LIBRARY PAGE HEADER OVERHAUL
+   Title + item count inline, filter/sort dropdowns below
+   ══════════════════════════════════════════════════════════════ */
+
+/* Hide the original page title bar and view menu bar on library pages */
+.itemsTab .pageTitle,
+.itemsTab .sectionTitleContainer,
+.itemsTab .viewMenuBar .filterButtonGroup,
+.itemsTab .viewMenuBar .btnSort,
+.itemsTab .viewMenuBar .btnFilter { display: none !important; }
+
+/* ── Library header container ── */
+#sbLibraryHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55em;
+  padding: 1.1em var(--sidePadding) 0.5em;
+  margin-bottom: 0.25em;
+}
+
+/* ── Title row: name + count ── */
+#sbLibraryHeader .sbLibTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45em;
+  flex-wrap: wrap;
+}
+
+#sbLibraryHeader .sbLibName {
+  font-size: 1.75em;
+  font-weight: 700;
+  color: var(--textColor);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+#sbLibraryHeader .sbLibCount {
+  font-size: 0.95em;
+  font-weight: 500;
+  color: var(--dimTextColor);
+  padding-top: 0.15em;
+}
+
+/* ── Filter row: dropdowns ── */
+#sbLibraryHeader .sbLibFilters {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  flex-wrap: wrap;
+}
+
+/* Clone/proxy the existing viewMenuBar buttons into our row */
+#sbLibraryHeader .sbLibFilters .emby-select-withcolor,
+#sbLibraryHeader .sbLibFilters select,
+#sbLibraryHeader .sbLibFilters .emby-button,
+#sbLibraryHeader .sbLibFilters button {
+  background: var(--selectorBackgroundColor) !important;
+  border: var(--defaultBorder) !important;
+  border-radius: var(--smallRadius) !important;
+  color: var(--textColor) !important;
+  font-family: "Inter", sans-serif !important;
+  font-size: 0.82em !important;
+  font-weight: 500 !important;
+  padding: 0.4em 0.8em !important;
+  height: auto !important;
+  min-height: unset !important;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+#sbLibraryHeader .sbLibFilters .emby-select-withcolor:hover,
+#sbLibraryHeader .sbLibFilters select:hover,
+#sbLibraryHeader .sbLibFilters .emby-button:hover,
+#sbLibraryHeader .sbLibFilters button:hover {
+  border-color: var(--accent) !important;
+  background: rgba(229, 9, 20, 0.08) !important;
+}
+
+/* Active/selected filter pill highlight */
+#sbLibraryHeader .sbLibFilters .emby-button.active,
+#sbLibraryHeader .sbLibFilters button.active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+/* ── Move the real viewMenuBar out of sight but keep it functional ── */
+.sbLibHideBar {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  clip: rect(0,0,0,0) !important;
+}
