@@ -1414,183 +1414,234 @@
 })();
 
 /* ═══════════════════════════════════════════════════════════
-   LIBRARY PAGE HEADER OVERHAUL
-   Injects: Title  N items  | [Sort ▾] [Filter ▾] [A–Z ...]
+   LIBRARY PAGE HEADER — Moonfin-style (pure inject)
+   Row 1: Title  N items
+   Row 2: [≡ Sort]  [≡ Filter]   # A B C … Z
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
 
-  const HEADER_ID = "sbLibraryHeader";
+  const HDR_ID      = "sbLibHdr";
+  const CTRL_ID     = "sbLibControls";
+  const ALPHA_CHARS = ["#","A","B","C","D","E","F","G","H","I","J","K","L","M",
+                       "N","O","P","Q","R","S","T","U","V","W","X","Y","Z"];
 
+  /* ── Helpers ─────────────────────────────────────────────── */
   function isLibraryPage() {
-    const hash = location.hash || "";
-    // Matches /movies, /tv, /list, and generic library browse pages
+    return !!(
+      document.querySelector(".itemsTab .viewMenuBar") ||
+      document.querySelector(".libraryPage .viewMenuBar")
+    );
+  }
+
+  function getViewMenuBar() {
     return (
-      hash.includes("/movies") ||
-      hash.includes("/tv") ||
-      hash.includes("/list") ||
-      !!document.querySelector(".itemsTab, .libraryPage")
+      document.querySelector(".itemsTab .viewMenuBar") ||
+      document.querySelector(".libraryPage .viewMenuBar")
     );
   }
 
   function getLibraryName() {
-    // Try the real page title first
-    const titleEl =
-      document.querySelector(".pageTitle:not(.pageTitleWithDefaultLogo)") ||
-      document.querySelector(".libraryPage .pageTitle") ||
-      document.querySelector("h1.pageTitle") ||
-      document.querySelector(".itemsTab h1") ||
-      document.querySelector(".sectionTitle");
-    if (titleEl) return titleEl.textContent.trim();
-
-    // Fallback: derive from URL hash
-    const hash = location.hash || "";
-    if (hash.includes("/movies"))   return "Movies";
-    if (hash.includes("/tv"))       return "TV Shows";
-    if (hash.includes("/music"))    return "Music";
-    if (hash.includes("/list"))     return "Library";
+    // Try native page title elements (Jellyfin renders these)
+    const sel = [
+      ".itemsTab .pageTitle",
+      ".libraryPage .pageTitle",
+      ".sectionTitleContainer .pageTitle",
+      "h1.pageTitle",
+      ".sectionTitle"
+    ];
+    for (const s of sel) {
+      const el = document.querySelector(s);
+      if (el && el.textContent.trim()) return el.textContent.trim();
+    }
+    // Fallback: hash
+    const h = location.hash || "";
+    if (h.includes("/movies")) return "Movies";
+    if (h.includes("/tv"))     return "TV Shows";
+    if (h.includes("/music"))  return "Music";
     return "";
   }
 
   function getItemCount() {
-    // Jellyfin renders count in .itemCountIndicator or as text near the header
-    const countEl =
-      document.querySelector(".itemCountIndicator") ||
-      document.querySelector(".recordCount") ||
-      document.querySelector(".viewMenuBar .recordCount");
-    if (countEl) {
-      const n = parseInt(countEl.textContent.replace(/\D/g, ""), 10);
-      if (!isNaN(n)) return n;
+    // Jellyfin puts count in recordCount or similar
+    const candidates = [
+      ".recordCount",
+      ".itemCountIndicator",
+      ".viewMenuBar .recordCount",
+      ".alphaPicker + * .recordCount"
+    ];
+    for (const s of candidates) {
+      const el = document.querySelector(s);
+      if (el) {
+        const n = parseInt(el.textContent.replace(/\D/g, ""), 10);
+        if (!isNaN(n) && n > 0) return n;
+      }
     }
-    // Count cards as fallback
-    const cards = document.querySelectorAll(
-      ".itemsContainer .card, .itemsContainer .listItem"
-    );
+    // Count visible cards as last resort
+    const cards = document.querySelectorAll(".itemsContainer .card, .itemsContainer .listItem");
     return cards.length || null;
   }
 
-  function getOrBuildHeader() {
-    let hdr = document.getElementById(HEADER_ID);
-    if (hdr) return hdr;
-
-    hdr = document.createElement("div");
-    hdr.id = HEADER_ID;
-    hdr.innerHTML = `
-      <div class="sbLibTitle">
-        <span class="sbLibName"></span>
-        <span class="sbLibCount"></span>
-      </div>
-      <div class="sbLibFilters"></div>`;
-    return hdr;
-  }
-
-  function cloneFilterButtons(filtersRow) {
-    // Grab the real viewMenuBar filter/sort controls
-    const bar = document.querySelector(".viewMenuBar");
-    if (!bar || filtersRow.dataset.cloned) return;
-
-    // Clone every interactive child (selects + buttons)
-    const controls = bar.querySelectorAll(
-      "select, .emby-select-withcolor, button.emby-button, .btnSortText, .btnFilter, .alphabetPicker button"
+  /* ── Wire sort button to Jellyfin's real sort button ──────── */
+  function triggerSort() {
+    const real = document.querySelector(
+      ".btnSort, .viewMenuBar .btnSort, button[title*='Sort' i], .btnSortText"
     );
-
-    if (!controls.length) return;
-    filtersRow.dataset.cloned = "1";
-
-    controls.forEach(ctrl => {
-      const clone = ctrl.cloneNode(true);
-      // Wire click/change on clone back to the real element
-      clone.addEventListener("change", () => { ctrl.value = clone.value; ctrl.dispatchEvent(new Event("change", { bubbles: true })); });
-      clone.addEventListener("click",  () => { ctrl.click(); });
-      filtersRow.appendChild(clone);
-    });
-
-    // Hide the real bar visually (but keep it in DOM so Jellyfin logic still works)
-    bar.classList.add("sbLibHideBar");
+    if (real) real.click();
   }
 
-  function injectHeader() {
-    if (!isLibraryPage()) return;
+  /* ── Wire filter button to Jellyfin's real filter button ──── */
+  function triggerFilter() {
+    const real = document.querySelector(
+      ".btnFilter, .viewMenuBar .btnFilter, button[title*='Filter' i]"
+    );
+    if (real) real.click();
+  }
+
+  /* ── Wire alphabet to Jellyfin's native alphabet picker ───── */
+  function triggerAlpha(char) {
+    // Jellyfin's alphaPicker renders buttons with data-value
+    const real = document.querySelector(
+      `.alphaPicker [data-value="${char}"], .alphaPicker button[title="${char}"]`
+    );
+    if (real) { real.click(); return; }
+    // Fallback: dispatch custom event some themes listen to
+    document.dispatchEvent(new CustomEvent("alphapicker:letterselected", { detail: { value: char } }));
+  }
+
+  function getActiveSortLabel() {
+    const btn = document.querySelector(".btnSortText, .btnSort .buttonText, .btnSort span:not(.material-icons)");
+    return btn ? btn.textContent.trim() : "Name (A-Z)";
+  }
+
+  /* ── Build the injected header ───────────────────────────── */
+  function buildHeader(bar) {
+    // ── Title row ──
+    const hdr = document.createElement("div");
+    hdr.id = HDR_ID;
 
     const name = getLibraryName();
-    if (!name) return;
-
-    // Find anchor — the items container or the page content wrapper
-    const anchor =
-      document.querySelector(".itemsTab > .padded-left") ||
-      document.querySelector(".itemsTab > .padded-top") ||
-      document.querySelector(".itemsTab") ||
-      document.querySelector(".libraryPage .padded-top.padded-left-withalphabet") ||
-      document.querySelector(".filterContainer") ||
-      document.querySelector(".itemsContainer")?.parentElement;
-
-    if (!anchor) return;
-
-    const hdr = getOrBuildHeader();
-    if (!hdr.parentElement) {
-      anchor.insertAdjacentElement("beforebegin", hdr);
-    }
-
-    // Update name
-    hdr.querySelector(".sbLibName").textContent = name;
-
-    // Update count
     const count = getItemCount();
-    hdr.querySelector(".sbLibCount").textContent =
-      count !== null ? `${count.toLocaleString()} item${count !== 1 ? "s" : ""}` : "";
 
-    // Clone filter controls once they exist
-    const filtersRow = hdr.querySelector(".sbLibFilters");
-    cloneFilterButtons(filtersRow);
+    hdr.innerHTML = `
+      <span class="sbLibHdrName">${name}</span>
+      <span class="sbLibHdrCount">${count !== null ? count.toLocaleString() + " items" : ""}</span>`;
+
+    // ── Controls row ──
+    const ctrl = document.createElement("div");
+    ctrl.id = CTRL_ID;
+
+    // Left: sort + filter
+    const left = document.createElement("div");
+    left.className = "sbLibLeft";
+
+    const sortBtn = document.createElement("button");
+    sortBtn.className = "sbLibBtn";
+    sortBtn.innerHTML = `<span class="material-icons">sort</span><span class="sbLibBtnLabel">${getActiveSortLabel()}</span>`;
+    sortBtn.addEventListener("click", triggerSort);
+
+    const filterBtn = document.createElement("button");
+    filterBtn.className = "sbLibBtn";
+    filterBtn.innerHTML = `<span class="material-icons">filter_list</span><span>All</span>`;
+    filterBtn.addEventListener("click", triggerFilter);
+
+    left.appendChild(sortBtn);
+    left.appendChild(filterBtn);
+
+    // Right: alphabet
+    const right = document.createElement("div");
+    right.className = "sbLibRight";
+
+    ALPHA_CHARS.forEach(ch => {
+      const btn = document.createElement("button");
+      btn.className = "sbLibAlpha";
+      btn.textContent = ch;
+      btn.addEventListener("click", () => {
+        right.querySelectorAll(".sbLibAlpha").forEach(b => b.classList.remove("sbLibAlpha--active"));
+        btn.classList.add("sbLibAlpha--active");
+        triggerAlpha(ch);
+      });
+      right.appendChild(btn);
+    });
+
+    ctrl.appendChild(left);
+    ctrl.appendChild(right);
+
+    // Insert both at the TOP of the viewMenuBar
+    bar.insertBefore(ctrl, bar.firstChild);
+    bar.insertBefore(hdr, bar.firstChild);
   }
 
-  function ejectHeader() {
-    const hdr = document.getElementById(HEADER_ID);
-    if (hdr) hdr.remove();
-    // Restore the real bar
-    document.querySelector(".viewMenuBar.sbLibHideBar")?.classList.remove("sbLibHideBar");
+  function removeHeader() {
+    document.getElementById(HDR_ID)?.remove();
+    document.getElementById(CTRL_ID)?.remove();
+  }
+
+  /* ── Update count label after cards load ─────────────────── */
+  function refreshCount() {
+    const countEl = document.querySelector(`#${HDR_ID} .sbLibHdrCount`);
+    if (!countEl) return;
+    const count = getItemCount();
+    if (count !== null) countEl.textContent = count.toLocaleString() + " items";
+  }
+
+  /* ── Update sort label when user changes sort ────────────── */
+  function refreshSortLabel() {
+    const labelEl = document.querySelector(`#${CTRL_ID} .sbLibBtnLabel`);
+    if (!labelEl) return;
+    labelEl.textContent = getActiveSortLabel();
+  }
+
+  /* ── Main inject ─────────────────────────────────────────── */
+  function inject() {
+    if (document.getElementById(HDR_ID)) return; // already injected
+    const bar = getViewMenuBar();
+    if (!bar) return;
+    const name = getLibraryName();
+    if (!name) return;
+    buildHeader(bar);
   }
 
   function onRoute() {
-    ejectHeader();
+    removeHeader();
     if (isLibraryPage()) {
-      // Delay to let Jellyfin render the page title + item count
-      setTimeout(injectHeader, 600);
-      setTimeout(injectHeader, 1400); // second pass to catch late count render
+      setTimeout(inject, 500);
+      setTimeout(inject, 1200);
     }
   }
 
-  // Re-sync item count as cards load in
-  let _countTimer = null;
-  function watchCount() {
-    clearInterval(_countTimer);
-    if (!isLibraryPage()) return;
-    _countTimer = setInterval(() => {
-      const hdr = document.getElementById(HEADER_ID);
-      if (!hdr) return;
-      const count = getItemCount();
-      if (count !== null) {
-        hdr.querySelector(".sbLibCount").textContent =
-          `${count.toLocaleString()} item${count !== 1 ? "s" : ""}`;
-      }
-    }, 800);
-    setTimeout(() => clearInterval(_countTimer), 12000);
+  /* ── Count polling (cards stream in async) ───────────────── */
+  let _countPoll = null;
+  function startCountPoll() {
+    clearInterval(_countPoll);
+    let ticks = 0;
+    _countPoll = setInterval(() => {
+      refreshCount();
+      refreshSortLabel();
+      if (++ticks >= 20) clearInterval(_countPoll); // 20 × 600ms = 12s
+    }, 600);
   }
 
-  window.addEventListener("hashchange", () => { onRoute(); watchCount(); });
-  window.addEventListener("popstate",   () => { onRoute(); watchCount(); });
+  /* ── Boot ────────────────────────────────────────────────── */
+  window.addEventListener("hashchange", () => { onRoute(); startCountPoll(); });
+  window.addEventListener("popstate",   () => { onRoute(); startCountPoll(); });
 
-  // MutationObserver to catch SPA navigation that doesn't fire hashchange
+  // MutationObserver for SPA navigation
   new MutationObserver(() => {
-    if (isLibraryPage() && !document.getElementById(HEADER_ID)) {
-      injectHeader();
+    if (isLibraryPage() && !document.getElementById(HDR_ID)) {
+      inject();
+      startCountPoll();
     }
   }).observe(document.body, { childList: true, subtree: true });
 
-  // Initial run
+  // Initial boot
+  const _boot = () => {
+    if (isLibraryPage()) { inject(); startCountPoll(); }
+  };
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => { onRoute(); watchCount(); });
+    document.addEventListener("DOMContentLoaded", () => setTimeout(_boot, 600));
   } else {
-    setTimeout(() => { onRoute(); watchCount(); }, 800);
+    setTimeout(_boot, 600);
   }
+
 })();
