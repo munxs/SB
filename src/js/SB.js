@@ -7,14 +7,14 @@
  *
  *   (function() {
  *     var s = document.createElement('script');
- *     s.src = 'https://cdn.jsdelivr.net/gh/munxs/SB@main/src/js/SB.js';
+ *     s.src = 'https://cdn.jsdelivr.net/gh/munxs/SB/src/js/SB.js';
  *     s.async = false;
  *     document.head.appendChild(s);
  *   })();
  *
  * CDN cache note: jsDelivr caches for 24h. After pushing a new file,
  * use the purge URL to bust the cache:
- *   https://purge.jsdelivr.net/gh/munxs/SB@main/src/js/SB.js
+ *   https://purge.jsdelivr.net/gh/munxs/SB/src/js/SB.js
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -36,7 +36,7 @@
 
 /* ── CSS injected as <link> tag — works on login page too ── */
 (function () {
-  var href = "https://cdn.jsdelivr.net/gh/munxs/SB@main/src/css/SB.css";
+  var href = "https://cdn.jsdelivr.net/gh/munxs/SB/src/css/SB.css";
   if (!document.querySelector('link[href="' + href + '"]')) {
     var l = document.createElement("link");
     l.rel = "stylesheet";
@@ -47,8 +47,8 @@
 
 /* ── Custom logo + favicon ── */
 (function () {
-  var FAVICON = "https://cdn.jsdelivr.net/gh/munxs/SB@main/src/logo/sb_favicon.png";
-  var LOGO    = "https://cdn.jsdelivr.net/gh/munxs/SB@main/src/logo/sb_logo.png";
+  var FAVICON = "https://cdn.jsdelivr.net/gh/munxs/SB/src/logo/sb_favicon.png";
+  var LOGO    = "https://cdn.jsdelivr.net/gh/munxs/SB/src/logo/sb_logo.png";
 
   /* ── Favicon ── */
   function setFavicon() {
