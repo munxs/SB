@@ -3192,7 +3192,7 @@ body:has(#loginPage:not(.hide)) #sbPillNav { display: none !important; }
 .portraitCard[data-type="BoxSet"] .cardScalable::before { content: "BOX SET"; background: rgba(196,136,18,0.93);  color: #fff; }
 
 /* ── Logo replacement via CSS ────────────────────────────────── */
-/* Header logo — Jellyfin sets it as a CSS background on this class */
+/* Header logo — Jellyfin sets it as a CSS background on this class*/
 .pageTitleWithDefaultLogo,
 .pageTitleWithLogo {
   background-image: url("https://cdn.jsdelivr.net/gh/munxs/SB/src/logo/sb_logo.png") !important;
