@@ -73,7 +73,6 @@
   /* Accent hover effects */
   --hoverGradientV: linear-gradient(0deg, transparent, rgba(78,197,241,1) 45%, rgba(78,197,241,1) 55%, transparent);
   --hoverGradientH: linear-gradient(90deg, transparent, rgba(78,197,241,1) 45%, rgba(78,197,241,1) 55%, transparent);
-}
 
   /* Radius & Spacing */
   --largerRadius:  1.25em;
